@@ -1,0 +1,587 @@
+Using VSCode for the entire app
+
+
+Installed .Net Install Tool
+C# Dev kit -> C# Base Language Support
+Material Icon Themes
+Nuget Gallery.
+
+Downloaded Assests from GitHub related to project.
+
+created a folder skinet-> Inside it created a solution file named skinet using the dotnet command dotnet new sln
+created three projects-> 1 .API with controllers switch and two ClassLibrary projects Infrastructure and Core, added each one of them to the skinet sln.
+Inside API -> Added dotnet reference of Infrastructure dotnet add reference ../Infrastructure
+Inside Infrastructure -> Added dotnet reference of Core dotnet add reference ../Core
+then dotnet restore
+then dotnet build 
+Inside Launch settings JSON -> set Launch Browser to false
+			    -> remove swagger if present
+			    -> change application URL port to 5000 (which dotnet used to have)     "applicationUrl": 							       "http://localhost:5000;https://localhost:5001;",
+
+services are things we inject into other classes inside our application. When we add services we add them before var app = builder.Build();
+Inside the Core Project -> Created Entities Folder under which we created two Entities -> BaseEntity that has a proper Id
+										       -> Product which inherits from BaseEntity and has the following Properties
+												  public required string Name { get; set; }
+    public required string Description { get; set; }
+    public decimal Price { get; set; }
+    public required string PictureUrl { get; set; }
+    public required string Type { get; set; }
+    public required string Brand { get; set; }   
+    public int QuantityStock { get; set; }
+
+Of course these are two separate classes. 
+Now we went to the Infrastructure Project, but before that we installed two packages from the nuget package manager -> Microsoft.EntityFrameworkCore.SqlServer (added to the Infrastructure Project)
+														    -> Microsoft.EntityFrameworkCore.Design Added to the api project
+
+Setting Up Entity FrameWork: 
+Inside the Infrastructure Project -> Remove the default Class File. Create a folder named Data inside Data create a file StoreContext.cs 
+Inside StoreContext we are passing DbConfigurations as options to the base class DbContext (correct me if I am wrong) like this:
+public class StoreContext(DbContextOptions options) : DbContext(options) //Primary Constructor Syntax
+{
+    public DbSet<Product> Products { get; set; } //Products is the name of the table where we are going to store 
+}  [Please help me understand this logic here]
+
+Explanation:1️⃣ StoreContext Class:
+➡️ This is your EF Core DbContext, which represents a session with the database.
+
+When you inherit from DbContext, you can:
+Register the database tables using DbSet<TEntity>.
+Configure how your models map to database tables.
+1️⃣ StoreContext Class:
+➡️ This is your EF Core DbContext, which represents a session with the database.
+
+When you inherit from DbContext, you can:
+
+Register the database tables using DbSet<TEntity>.
+
+Configure how your models map to database tables.
+
+This line maps your Product.cs entity to a table called Products in your database.
+
+public DbSet<Product> Products { get; set; }➡️ This tells EF Core:
+"Hey, create a table named Products and store all Product entities in it."
+
+
+
+Next we register the StoreContext service inside Program.cs in the DI(Dependency Injection) container and as options we passing the ConnectionString as the value. like this 
+builder.Services.AddDbContext<StoreContext>(opt =>
+{
+    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
+
+
+then we go to appsettings.development.json and create a connectionstring with the tag name DefaultConnection(the one that we have mentioned while registering the DbContext Service) like this:
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=skinet;Trusted_Connection=True;TrustServerCertificate=True"
+
+Then we are going to install dotnet-ef to setup Ef migrations. To do so:
+Go to link -> https://www.nuget.org/packages/dotnet-ef 
+Copy the command -> dotnet tool install --global dotnet-ef --version 9.0.7
+and paste in the vscode terminal (MUST STOP THE API SERVER WHILE DOING SO AS THAT IS A REQUIREMENT)
+Now type the command to create a Migration using API as the startup project and Infrastructure as the project where DbContext resides :dotnet ef migrations add InitialCreate -s API -p Infrastructure
+To Remove any unwanted Migration -> dotnet ef migrations remove -s API -p Infrastructure
+
+We had to remove the first migration because it gave a warning of not handling the property Price with Decimal(18,2) of Product Entity. So to handle that we created another folder under Infrastructure project named Config under which we created ProductConfiguration.cs file. this ProductConfiguration class inherits from IEntityTypeConfiguration and the method under goes as follows     public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<Product> builder)
+    {
+        builder.Property(x => x.Price).HasColumnType("decimal(18,2)");
+    }
+
+also in the storeContext.cs file under StoreContext Class we added this method
+ protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+
+        base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(ProductConfiguration).Assembly);
+    }
+Then we run this command to create database and update the tables : dotnet ef database update -s API -p Infrastructure
+Now downloaded the sql  server extension from vscode extensions and connected to the database and checked that our db was successfully created 
+Query to check our Migration history table -> SELECT TOP (1000) [MigrationId]
+      ,[ProductVersion]
+  FROM [skinet].[dbo].[__EFMigrationsHistory]
+
+
+Next we create the productscontroller case that inherits from the ControllerBase class (A base class for an MVC controller without the view support) and returns a json response
+give the class an [APIController] attribute
+then define a Route [Route("api/controller")]
+create Http endpoints
+[httpget]
+public async Task<ActionResult<IEnumerable<Products>>> GetProducts()
+
+In order to get the products from the database we need to inject StoreContext in our controller
+Dependency Injection  -> create a constructor of the Controller class and pass the StoreContext class as a parameter to the constructor.
+
+public ProductsController(StoreContext context)
+{
+	this.context= context;
+}
+
+and a readonly field     private readonly StoreContext context; 
+
+Next we create another httpget to get product by id and we pass the id as parameter to the method
+
+    [HttpGet("{id:int}")] //api/products/2
+    public async Task<ActionResult<Product>> GetProduct(int id)
+    {
+        var product = await context.Products.FindAsync(id);
+
+        if (product == null) return NotFound();
+
+        return product;
+    }
+
+then we create a post method to create product. and we pass the Product as an arguement
+
+    [HttpPost]
+    public async Task<ActionResult<Product>> CreateProduct(Product product)
+    {
+        context.Products.Add(product);
+        await context.SaveChangesAsync();
+
+        return product;
+    }
+
+Next we use postman to test our new API endpoints.
+To run the application first go inside the API folder, cd API and run the dotnet watch.
+Inside Postman create a workspace name it -> only me/invite only and create collection -> add a request
+
+test all the end points -> create some products -> using httppost that we wrote -> fetch the products using GetProducts -> and getProduct (by id),
+afer testing everything is working well and good lets finish the crud operations by adding the update and delete endpoints.
+one thing to note -> if we were not using APIController attribute then like for CreateProduct it would not know where to find the argument Product, then we had to specify [FromBody]
+Automatic model Binding Behaviour. 
+
+For Update operation we use the attribute  [HttpPut("{id:int}")] and pass the int id to find and update the product and the Product object as argument to the Update Method. we also create a 
+separate     private bool ProductExists(int id)
+    {
+        return context.Products.Any(x => x.Id == id);
+    } to check if the productexists for the given Id and then if it doesnot it returns a bad request. 
+
+
+✅ What does this line mean?
+
+csharp
+Copy
+Edit
+context.Entry(product).State = EntityState.Modified;
+🔍 What It Means
+That line tells Entity Framework Core (EF Core):
+
+"This product object wasn't retrieved from the database, but treat it like it was, and it's been modified — so update it in the database."
+
+💡 Why Do We Need It?
+In your update (PUT) operation, you usually receive a new Product object from the request body (via POSTMAN, etc.).
+But EF doesn't automatically track that object — it's just a disconnected object from the client.
+
+To tell EF to track it and treat it as an update, you set the entity state to Modified.
+also test these endpoints in the postman, an save changes to the source control.
+
+
+API Architecture
+
+Application Architecture
+Repository pattern
+Seeding Data
+Migrations and Startup
+
+Current Architecture -> 	
+				API
+				->Controllers -> Route requests to appropriate end points
+				->Startup  -> Responsible for the Startup Project
+				-> Middleware -> Part of the middleware contains routing config to make sure the http requests gets send to the apt end point to the apt controller
+
+
+				
+				Infrastructure
+				-> Repository -> Implementation of Data access
+				-> DbContext -> Data Access Logic
+				-> Services -> Other services like stripe/ and service like the database
+
+				
+
+				Core
+				->Entities -> 
+				->Interfaces -> Injecting the interface to the controllers/ Implementation Class in Infrastructure project
+
+Repository Pattern - Goals
+
+-> Decouple business code from data access
+-> Minimise Duplicate query logic
+-> Testability
+
+Why use Repository Pattern 
+
+-> Avoid Messy Controllers
+-> Simplified testing
+-> Increased Abstraction
+-> Maintainability
+-> Reduced Duplicate Code
+
+
+The Repository Pattern how we are going to use this
+
+-> Controller
+-> Repository
+-> DbContext
+
+we are going to use this we inject our repository interface
+into the controller.
+And this gives us access to methods such as Getproducts or Getproducts.
+And that's the method we call in our controller.
+From there, inside our repository we do inject the Dbcontext and we can use something like context
+or products to list.
+And then our Dbcontext.
+Its job is to translate this code into something our database understands via the Entity Framework provider,
+so it can retrieve the list of products from our database that then gets passed back to our repository,
+which in turn gets passed back to our controller.
+And then our API controller can return the data to the client that's requesting it.
+
+then we created a IProductRepository interface -> inside the CORE project we made an interfaces folder  inside that we created the interface like this:
+using System;
+using Core.Entities;
+
+namespace Core.Interfaces;
+
+public interface IProductRepository
+{
+    Task<IReadOnlyList<Product>> GetProductsAsync();
+    Task<Product?> GetProductByIdAsync(int id);
+    void AddProduct(Product product);
+    void UpdateProduct(Product product);
+    void DeleteProduct(Product product);
+    bool ProductExists(int id);
+    Task<bool> SaveChangesAsync();
+}
+
+
+Then we created a class ProductRepository to implement the above interface IProductRepository -> inside the Data folder of Infrastructure project. 
+
+using System;
+using Core.Entities;
+using Core.Interfaces;
+using Microsoft.EntityFrameworkCore;
+
+namespace Infrastructure.Data;
+
+public class ProductRepository(StoreContext context) : IProductRepository
+{
+
+    public void AddProduct(Product product)
+    {
+        context.Products.Add(product);
+    }
+
+    public void DeleteProduct(Product product)
+    {
+        context.Products.Remove(product);
+    }
+
+    public async Task<Product?> GetProductByIdAsync(int id)
+    {
+        return await context.Products.FindAsync(id);
+    }
+
+    public async Task<IReadOnlyList<Product>> GetProductsAsync()
+    {
+        return await context.Products.ToListAsync();
+    }
+
+    public bool ProductExists(int id)
+    {
+        return context.Products.Any(p => p.Id==id);
+    }
+
+    public async Task<bool> SaveChangesAsync()
+    {
+        return await context.SaveChangesAsync() > 0;
+    }
+
+    public void UpdateProduct(Product product)
+    {
+        context.Entry(product).State = EntityState.Modified;
+    }
+}
+
+
+then we added the service inside the program.cs file like -> builder.Services.AddScoped<IProductRepository, ProductRepository>();
+now we chose addScoped because its lifetime in the lifetime of the httpRequest
+
+
+When you write:
+
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+You're telling ASP.NET Core’s built-in Dependency Injection (DI) system:
+
+“Whenever someone asks for IProductRepository, give them a new instance of ProductRepository — but only for the current HTTP request.”
+
+Let’s break that down clearly 👇
+
+🔄 Dependency Injection Lifetimes in ASP.NET Core
+There are 3 main lifetimes for services you register in Program.cs:
+
+Lifetime	Created...	Scope
+Singleton	Only once, ever	Shared across all users and requests
+Scoped	Once per HTTP request	Shared within the same HTTP request only
+Transient	Every time it’s requested	New instance every time it’s injected or used
+
+🧠 What does AddScoped mean in real life?
+
+Let’s say:
+User A makes an API call → GET /api/products
+ASP.NET creates a new HTTP request scope
+It creates one instance of ProductRepository for the entire duration of that request
+If another service (e.g., a service layer) also needs IProductRepository during the same request, it will get the same instance
+🔁 Then...
+User B makes another API call → gets another scope and another instance
+
+✅ Why Scoped is Perfect for Database Repositories
+
+EF Core’s DbContext is registered as scoped by default, so:
+It’s safe and consistent to register repositories the same way
+You don’t want to share DbContext across multiple requests (like with Singleton)
+You don’t need a new instance every time (like with Transient)
+
+So this is a best practice:
+csharp
+Copy
+Edit
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+🔁 Summary
+AddScoped = One instance per HTTP request
+Ideal for:
+Repositories
+Services that depend on DbContext
+Helps prevent:
+Memory leaks
+Threading issues with shared state
+Unexpected database behavior
+
+
+Using the Repository in the controller
+
+Implemented all the methods of the ProductRepository in the controller, so that the controller can route to the repository on API call. Implemented Primary constructor syntax and passing IProductRepository as an argument 
+[ApiController]
+[Route("api/[controller]")]
+
+public class ProductsController(IProductRepository repo) : ControllerBase //a base class for MVC controller without view support
+{
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<Product>>> GetProducts()
+    {
+        return Ok( await repo.GetProductsAsync());
+    }
+
+    [HttpGet("{id:int}")] //api/products/2
+    public async Task<ActionResult<Product>> GetProduct(int id)
+    {
+        var product = await repo.GetProductByIdAsync(id);
+
+        if (product == null) return NotFound();
+
+        return product;
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<Product>> CreateProduct(Product product)
+    {
+        repo.AddProduct(product);
+        if (await repo.SaveChangesAsync())
+        {
+            return CreatedAtAction("GetProduct", new { id = product.Id }, product);
+        }
+
+        return BadRequest("Error Creating Product");
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult> UpdateProduct(int id, Product product)
+    {
+        if (product.Id != id || !ProductExists(id))
+            return BadRequest("Cannot update this product");
+
+        repo.UpdateProduct(product);
+        if (await repo.SaveChangesAsync())
+        {
+            return NoContent();
+        }
+        return BadRequest("Problem Updating the Product");
+
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<ActionResult> DeleteProduct(int id)
+    {
+        var product = await repo.GetProductByIdAsync(id);
+        if (product == null) return NotFound();
+
+        repo.DeleteProduct(product);
+        if (await repo.SaveChangesAsync())
+        {
+            return NoContent();
+        }
+
+        return BadRequest("Problem deleting the product");
+    }
+    private bool ProductExists(int id)
+    {
+        return repo.ProductExists(id);
+    }
+}
+
+
+Next up is seeding the data
+
+to seed the data into our db we are using product.json file that contains some data.
+We create a folder inside Data folder called SeedData inside that we are going to paste the Product.json.
+again inside the Data Folder -> Create a file StoreContextSeed.cs we are creating a static async method(use the method without needing to creating an instance of this class) 
+we will check if there is any product in our database. If we dont have any products we are going to read from the json file, use JSonSerializer.Deserialize to product classes.
+
+public class StoreContextSeed
+{
+    public static async Task SeedAsync(StoreContext context)
+    {
+        if (!context.Products.Any())
+        {
+            var productsData = await File.ReadAllTextAsync("../Infrastructure/Data/SeedData/products.json");
+            var products = JsonSerializer.Deserialize<List<Product>>(productsData);
+            if (products == null)
+                return;
+            context.Products.AddRange(products);
+            await context.SaveChangesAsync();
+        }
+    }
+}
+
+Next in Program Files we add a service outside DI container, just like this: 
+✅ First, What’s the Code Doing?
+csharp
+Copy
+Edit
+try
+{
+    using var scope = app.Services.CreateScope(); // 1️⃣
+    var services = scope.ServiceProvider;         // 2️⃣
+    var context = services.GetRequiredService<StoreContext>(); // 3️⃣
+
+    await context.Database.MigrateAsync(); // 4️⃣
+    await StoreContextSeed.SeedAsync(context); // 5️⃣
+}
+catch (Exception ex)
+{
+    System.Console.WriteLine(ex);
+    throw;
+}
+🔍 Why are we doing this?
+This is happening at app startup, before any HTTP request has been made.
+
+You’re doing two key things:
+
+Apply pending EF Core migrations (MigrateAsync)
+
+Seed the database with sample data (SeedAsync)
+
+But here's the catch 👇
+
+🚫 Why can't we just inject StoreContext via constructor?
+Because this code is outside the request pipeline and outside the DI system's normal controller/service creation.
+
+At startup time (in Program.cs), we don't have access to:
+
+Controllers
+
+Services injected by constructor
+
+Middleware-based request services
+
+So we need to manually create a scope to:
+
+Mimic an HTTP request lifetime — so we can resolve scoped services like StoreContext.
+
+🔄 What's happening line by line?
+Line	Purpose
+using var scope = app.Services.CreateScope();	Creates a temporary scope (like per-request scope)
+var services = scope.ServiceProvider;	Get the DI container inside the scope
+services.GetRequiredService<StoreContext>();	Ask DI container for StoreContext (which is a scoped service)
+context.Database.MigrateAsync();	Apply EF Core migrations to sync DB schema
+StoreContextSeed.SeedAsync(context);	Populate DB with sample data
+
+🧠 Why Create a Scope Manually?
+Because StoreContext is registered as Scoped, and ASP.NET Core:
+
+❌ Won’t resolve scoped services from the root provider (app.Services)
+✅ Will resolve them within a created scope
+
+So we create a scope, get the scoped services, do what we need (migrations, seeding), and dispose of them.
+
+✅ Real-World Summary
+This pattern is:
+
+Very common in ASP.NET Core
+
+Safe and reliable
+
+Used in .NET 6/7/8 minimal APIs and Web APIs to handle startup-time DB tasks
+
+then we are going to drop the existing database using dotnet ef database drop -p Infrastructure -s API
+then we create a database and seed data. run the project again -> dotnet watch
+Test the data in postman
+
+Added two more methods GetBrands and GetTypes changes made in -> IProductRepository -> Implemented the same in ProductRepository class -> again called the method in the controller class.
+
+Tackle Filtering in API
+
+
+Generics and Specification Pattern
+
+-> Creating a generic repository
+-> Specification pattern
+-> Using the specification pattern
+-> Using the Debugger
+-> Shaping Data
+
+
+-> Creating a generic repository
+
+using System;
+using Core.Entities;
+using Core.Interfaces;
+using Microsoft.EntityFrameworkCore;
+
+namespace Infrastructure.Data;
+
+public class GenericRepositiry<T>(StoreContext context) : IGenericRepository<T> where T : BaseEntity
+{
+    public void Add(T entity)
+    {
+        context.Set<T>().Add(entity);
+    }
+
+    public bool Exists(int id)
+    {
+        return context.Set<T>().Any(e => e.Id == id);
+    }
+
+    public async Task<T?> GetByIdAsync(int id)
+    {
+        return await context.Set<T>().FindAsync(id);
+    }
+
+    public async Task<IReadOnlyList<T>> ListAllAsync()
+    {
+        return await context.Set<T>().ToListAsync();
+    }
+
+    public void Remove(T entity)
+    {
+        context.Set<T>().Remove(entity);
+    }
+
+    public async Task<bool> SaveAllAsync()
+    {
+        return await context.SaveChangesAsync() > 0;
+    }
+
+    public void Update(T entity)
+    {
+        context.Set<T>().Attach(entity);
+        context.Entry(entity).State = EntityState.Modified;
+    }
+}
