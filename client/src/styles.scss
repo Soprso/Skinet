@@ -14,11 +14,37 @@
   
 }
 
-
-.match-input-height{
-  height: var(--mat-form-field-container-height) !important;
+.match-input-height {
+  height: 56px !important; /* 56px is Angular Material’s default height for inputs/buttons */
+  display: flex;
+  align-items: center;
+  padding: 0 16px; /* Optional: for consistent internal spacing */
 }
+
 
 .mdc-notched-outline__notch{
   border-right-style: none !important;
+}
+
+.snack-error{
+   @include mat.snack-bar-overrides((
+    button-color: white,
+    container-color: darkred,
+    supporting-text-color: white
+  ));
+}
+
+.snack-success{
+   @include mat.snack-bar-overrides((
+    button-color: white,
+    container-color: green,
+    supporting-text-color: white
+  ));
+}
+
+.custom-black-bar {
+   @include mat.progress-bar-overrides((
+    active-indicator-color: white,
+    track-color: black,
+  ));
 }
