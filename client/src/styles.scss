@@ -8,9 +8,7 @@
     outlined-label-text-color: black,
     filled-container-color: black
   ));
-    @include mat.badge-overrides((
-    background-color:black
-  ));
+
   
 }
 
