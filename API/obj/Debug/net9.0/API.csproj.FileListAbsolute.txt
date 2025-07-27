@@ -165,3 +165,9 @@ C:\Users\Soumya\skinet\API\bin\Debug\net9.0\runtimes\win\lib\net6.0\System.Secur
 C:\Users\Soumya\skinet\API\bin\Debug\net9.0\runtimes\win\lib\net6.0\System.Windows.Extensions.dll
 C:\Users\Soumya\skinet\api\bin\Debug\net9.0\Pipelines.Sockets.Unofficial.dll
 C:\Users\Soumya\skinet\api\bin\Debug\net9.0\StackExchange.Redis.dll
+C:\Users\Soumya\skinet\API\bin\Debug\net9.0\Microsoft.AspNetCore.Cryptography.Internal.dll
+C:\Users\Soumya\skinet\API\bin\Debug\net9.0\Microsoft.AspNetCore.Cryptography.KeyDerivation.dll
+C:\Users\Soumya\skinet\API\bin\Debug\net9.0\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
+C:\Users\Soumya\skinet\API\bin\Debug\net9.0\Microsoft.Extensions.Identity.Core.dll
+C:\Users\Soumya\skinet\API\bin\Debug\net9.0\Microsoft.Extensions.Identity.Stores.dll
+C:\Users\Soumya\skinet\API\bin\Debug\net9.0\System.Diagnostics.DiagnosticSource.dll
