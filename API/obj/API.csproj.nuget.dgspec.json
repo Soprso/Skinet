@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Soumya\\skinet\\api\\API.csproj": {}
+    "C:\\Users\\Soumya\\skinet\\API\\API.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Soumya\\skinet\\api\\API.csproj": {
+    "C:\\Users\\Soumya\\skinet\\API\\API.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Soumya\\skinet\\api\\API.csproj",
+        "projectUniqueName": "C:\\Users\\Soumya\\skinet\\API\\API.csproj",
         "projectName": "API",
-        "projectPath": "C:\\Users\\Soumya\\skinet\\api\\API.csproj",
+        "projectPath": "C:\\Users\\Soumya\\skinet\\API\\API.csproj",
         "packagesPath": "C:\\Users\\Soumya\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Soumya\\skinet\\api\\obj\\",
+        "outputPath": "C:\\Users\\Soumya\\skinet\\API\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
